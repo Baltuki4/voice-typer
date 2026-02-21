@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(claude-developer-platform)",
+      "Bash(pip:*)",
+      "Bash(pip3:*)"
+    ]
+  }
+}
