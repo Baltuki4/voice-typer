@@ -7,16 +7,14 @@ Hold PTT_KEY → speak → release → transcribed text is pasted at your cursor
 Right-click the tray icon to quit.
 """
 
-import os
 import signal
-import tempfile
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pyperclip
 import pystray
-import scipy.io.wavfile
 import sounddevice as sd
 from faster_whisper import WhisperModel
 from PIL import Image, ImageDraw
@@ -24,7 +22,7 @@ from pynput import keyboard
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 PTT_KEY       = keyboard.Key.f15   # key to hold while speaking
-WHISPER_MODEL = "medium"             # tiny | base | small | medium | large-v3
+WHISPER_MODEL = "small"              # tiny | base | small | medium | large-v3
 WHISPER_LANG  = "es"               # None = auto-detect, or "en", "es", "fr" …
 SAMPLE_RATE   = 16_000
 MIN_DURATION  = 0.4                # seconds — shorter clips are discarded
@@ -37,6 +35,7 @@ _audio_chunks: list[np.ndarray] = []
 _lock         = threading.Lock()
 _tray: pystray.Icon | None = None
 _stopping     = threading.Event()
+_executor     = ThreadPoolExecutor(max_workers=1)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -98,14 +97,14 @@ def _record_loop() -> None:
 
 
 def _transcribe(model: WhisperModel, audio: np.ndarray) -> str:
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-        path = f.name
-    try:
-        scipy.io.wavfile.write(path, SAMPLE_RATE, (audio * 32_767).astype(np.int16))
-        segments, _ = model.transcribe(path, language=WHISPER_LANG)
-        return " ".join(s.text for s in segments).strip()
-    finally:
-        os.unlink(path)
+    # Pass the numpy array directly — no temp file needed
+    segments, _ = model.transcribe(
+        audio,
+        language=WHISPER_LANG,
+        beam_size=1,        # greedy decoding: fastest
+        vad_filter=True,    # skip silence automatically
+    )
+    return " ".join(s.text for s in segments).strip()
 
 
 def _paste(text: str, kb_ctrl: keyboard.Controller) -> None:
@@ -116,10 +115,10 @@ def _paste(text: str, kb_ctrl: keyboard.Controller) -> None:
         previous = ""
 
     pyperclip.copy(text)
-    time.sleep(0.05)
+    time.sleep(0.01)
     with kb_ctrl.pressed(keyboard.Key.ctrl):
         kb_ctrl.tap("v")
-    time.sleep(0.15)
+    time.sleep(0.05)
 
     try:
         pyperclip.copy(previous)
@@ -130,7 +129,7 @@ def _paste(text: str, kb_ctrl: keyboard.Controller) -> None:
 def _run_keyboard_listener(model: WhisperModel, kb_ctrl: keyboard.Controller) -> None:
     global _recording
 
-    def on_press(key: keyboard.Key) -> None:
+    def on_press(key) -> None:
         global _recording
         if key == PTT_KEY and not _recording:
             _recording = True
@@ -139,7 +138,13 @@ def _run_keyboard_listener(model: WhisperModel, kb_ctrl: keyboard.Controller) ->
             _set_tray("Voice Typer — Recording…", recording=True)
             threading.Thread(target=_record_loop, daemon=True).start()
 
-    def on_release(key: keyboard.Key) -> None:
+    def _transcribe_and_paste(audio: np.ndarray) -> None:
+        text = _transcribe(model, audio)
+        if text:
+            _paste(text, kb_ctrl)
+        _set_tray("Voice Typer — F15 to record")
+
+    def on_release(key) -> None:
         global _recording
         if key != PTT_KEY or not _recording:
             return
@@ -158,11 +163,8 @@ def _run_keyboard_listener(model: WhisperModel, kb_ctrl: keyboard.Controller) ->
             _set_tray("Voice Typer — F15 to record")
             return
 
-        text = _transcribe(model, audio)
-        if text:
-            _paste(text, kb_ctrl)
-
-        _set_tray("Voice Typer — F15 to record")
+        # Run transcription in background so the key listener stays responsive
+        _executor.submit(_transcribe_and_paste, audio)
 
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
@@ -178,7 +180,12 @@ def main() -> None:
     model_holder: list[WhisperModel | None] = [None]
 
     def _load():
-        model_holder[0] = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+        try:
+            model_holder[0] = WhisperModel(WHISPER_MODEL, device="cuda", compute_type="float16")
+            print("Modelo cargado en GPU (CUDA).", flush=True)
+        except Exception:
+            model_holder[0] = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+            print("Modelo cargado en CPU.", flush=True)
         model_ready.set()
         print("Voice Typer activo. Manten F15 para dictar. Usa Ctrl+C o Quit para cerrar.", flush=True)
         _set_tray("Voice Typer — F15 to record")
