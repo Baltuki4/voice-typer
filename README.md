@@ -1,16 +1,15 @@
-# Voice Dictation (Windows Tray App)
+<div align="center">
 
-![banner](docs/assets/banner.png)
+# 🎙️ Voice Typer
 
-![how it works](docs/assets/how_it_works.png)
+### Dictate anywhere. Type nothing. Work 10× faster.
 
-![old vs new](docs/assets/old_vs_new.png)
+[![Open Source](https://img.shields.io/badge/Open%20Source-%E2%9C%93-brightgreen?style=flat-square)]()
+[![Free](https://img.shields.io/badge/Free-%E2%9C%93-blue?style=flat-square)]()
+[![Local](https://img.shields.io/badge/Local-%E2%9C%93-orange?style=flat-square)]()
+[![Windows](https://img.shields.io/badge/Windows-supported-0078D4?style=flat-square&logo=windows&logoColor=white)]()
 
-![providers](docs/assets/providers.png)
-
-![setup](docs/assets/setup.png)
-
-![free local yours](docs/assets/free_banner.png)
+</div>
 
 ---
 
@@ -19,6 +18,90 @@ A lightweight Windows tray app that lets you dictate text by voice and paste it 
 It runs entirely in the background using [faster-whisper](https://github.com/SYSTRAN/faster-whisper) for local, offline transcription. No cloud service is required for basic dictation.
 
 On top of plain transcription, it includes an optional **prompt optimizer** mode: hold a second key, speak your idea in natural language, and the app transcribes it, rewrites it as a clean, well-structured AI prompt, and pastes the result. The optimizer supports cloud providers (Anthropic, OpenAI, Gemini) and fully local models via [Ollama](https://ollama.com) — no data leaves your machine if you use the local option.
+
+---
+
+## How it works
+
+```
+Hold PTT key  ──►  Whisper transcribes  ──►  Auto-paste at cursor
+```
+
+Two modes, same workflow:
+
+| Mode | You do | You get |
+|------|--------|---------|
+| Hold `PTT_KEY` | Speak naturally | Literal transcription pasted instantly |
+| Hold `PTT_KEY_OPTIMIZE` | Speak your idea | AI-rewritten structured prompt, pasted |
+
+**Example — plain dictation** (`PTT_KEY`):
+
+> You say: *"send the report to Maria before Friday"*
+>
+> Pasted: `Send the report to Maria before Friday.`
+
+**Example — prompt optimizer** (`PTT_KEY_OPTIMIZE`):
+
+> You say: *"write me an email asking for a meeting next week"*
+>
+> Pasted: `Write a concise, professional email requesting a meeting next week. Include a suggested time slot and a brief agenda. Tone: friendly but formal.`
+
+---
+
+## Before vs After
+
+| Without Voice Typer | With Voice Typer |
+|---------------------|-----------------|
+| Open editor, type rough draft | Hold PTT key |
+| Manually rephrase and fix tone | Speak your idea |
+| Copy, switch app, paste | Release key |
+| Repeat for every message/prompt | ✅ Already pasted where you need it |
+
+---
+
+## Providers
+
+The prompt optimizer works with cloud and local backends — choose one:
+
+| Provider | Type | API key needed |
+|----------|------|----------------|
+| **Anthropic** (Claude Haiku) | ☁️ Cloud | Yes |
+| **OpenAI** (GPT-4o mini) | ☁️ Cloud | Yes |
+| **Gemini** (2.0 Flash) | ☁️ Cloud | Yes |
+| **Ollama** (phi4-mini, llama3.2…) | 💻 Local | No — runs on your machine |
+
+> **Ollama** runs fully offline. No subscription, no account, no data sent anywhere.
+
+---
+
+## Quick setup
+
+```powershell
+git clone <this-repo>
+cd voice-dictation
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+copy .env.example .env   # then edit .env with your keys and PTT keys
+python .\voice_typer.py
+```
+
+See [Installation](#installation) and [Configuration](#configuration) below for full details.
+
+---
+
+<div align="center">
+
+### 🔒 Free. Local. Yours.
+
+No subscription · No account · No cloud · Just install and speak
+
+[![Open Source](https://img.shields.io/badge/-Open%20Source-brightgreen?style=flat-square)]()
+[![Offline](https://img.shields.io/badge/-Offline-blue?style=flat-square)]()
+[![No Data Sent](https://img.shields.io/badge/-No%20Data%20Sent-orange?style=flat-square)]()
+[![Windows](https://img.shields.io/badge/-Windows-0078D4?style=flat-square&logo=windows&logoColor=white)]()
+
+</div>
 
 ---
 
