@@ -8,13 +8,23 @@ import winreg
 from pathlib import Path
 
 APP_NAME    = "VoiceTyper"
-script_path = Path(__file__).resolve().parent / "voice_typer.py"
+project_dir = Path(__file__).resolve().parent
+script_path = project_dir / "voice_typer.py"
 
-# pythonw.exe runs Python without a console window
-pythonw = Path(sys.executable).parent / "pythonw.exe"
-if not pythonw.exists():
-    # Fallback: some envs only have python.exe
-    pythonw = Path(sys.executable)
+# Prefer the project's venv so startup matches manual launches.
+project_pythonw = project_dir / ".venv" / "Scripts" / "pythonw.exe"
+project_python = project_dir / ".venv" / "Scripts" / "python.exe"
+
+if project_pythonw.exists():
+    pythonw = project_pythonw
+elif project_python.exists():
+    pythonw = project_python
+else:
+    # pythonw.exe runs Python without a console window
+    pythonw = Path(sys.executable).parent / "pythonw.exe"
+    if not pythonw.exists():
+        # Fallback: some envs only have python.exe
+        pythonw = Path(sys.executable)
 
 command = f'"{pythonw}" "{script_path}"'
 

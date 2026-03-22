@@ -6,3 +6,6 @@ pynput
 pyperclip
 pystray
 Pillow
+anthropic
+openai
+python-dotenv

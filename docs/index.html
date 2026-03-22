@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoiceTyper — Visual Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --accent: #7efff5;
+    --accent2: #ff6b6b;
+    --accent3: #f5c542;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --glow: rgba(126,255,245,0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  .page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 60px 32px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 80px;
+  }
+
+  /* ── HEADER ── */
+  .header { text-align: center; position: relative; }
+
+  .header-badge {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 5px 14px;
+    margin-bottom: 20px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(42px, 8vw, 76px);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .header h1 span { color: var(--accent); display: block; }
+
+  .header-sub {
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  /* ── CARD SHARED ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 48px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.7s ease both;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .card-label {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .card-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── CARD 1: HOW IT WORKS ── */
+  .flow {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    align-items: center;
+    gap: 0;
+  }
+
+  .flow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+  }
+
+  .flow-icon {
+    width: 72px; height: 72px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    background: var(--bg);
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .flow-icon:hover { border-color: var(--accent); box-shadow: 0 0 20px var(--glow); }
+  .flow-icon.active { border-color: var(--accent); box-shadow: 0 0 24px var(--glow); }
+
+  .flow-step-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    color: var(--text); letter-spacing: 0.02em;
+  }
+
+  .flow-step-desc {
+    font-size: 10px; color: var(--muted);
+    line-height: 1.6; max-width: 130px; letter-spacing: 0.02em;
+  }
+
+  .flow-arrow {
+    font-size: 20px; color: var(--accent);
+    padding: 0 10px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; transform: translateX(0); }
+    50% { opacity: 1; transform: translateX(3px); }
+  }
+
+  /* ── KEY HOLD VISUAL ── */
+  .key-demo { display: flex; gap: 40px; margin-top: 32px; flex-wrap: wrap; }
+
+  .key-mode {
+    flex: 1; min-width: 240px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 28px; border-radius: 2px;
+    transition: border-color 0.3s;
+  }
+
+  .key-mode:hover { border-color: var(--accent); }
+  .key-mode.optimize { border-color: rgba(245,197,66,0.3); }
+  .key-mode.optimize:hover { border-color: var(--accent3); }
+
+  .key-mode-tag { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 16px; }
+  .key-mode-tag.plain { color: var(--accent); }
+  .key-mode-tag.opt { color: var(--accent3); }
+
+  .keycap {
+    display: inline-block;
+    background: #1a1a2a;
+    border: 1px solid #2e2e4a;
+    border-bottom: 3px solid #1a1a2e;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px; color: var(--accent);
+    margin-bottom: 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+
+  .keycap.gold {
+    color: var(--accent3);
+    border-color: rgba(245,197,66,0.3);
+    border-bottom-color: rgba(245,197,66,0.2);
+  }
+
+  .key-mode-desc { font-size: 11px; color: var(--muted); line-height: 1.7; margin-top: 8px; }
+  .key-mode-desc strong { color: var(--text); }
+
+  .result-pill {
+    margin-top: 16px;
+    display: inline-block;
+    font-size: 10px; padding: 5px 12px;
+    border-radius: 2px; letter-spacing: 0.05em;
+  }
+
+  .result-pill.cyan { background: rgba(126,255,245,0.08); color: var(--accent); border: 1px solid rgba(126,255,245,0.2); }
+  .result-pill.gold { background: rgba(245,197,66,0.08); color: var(--accent3); border: 1px solid rgba(245,197,66,0.2); }
+
+  /* ── CARD 2: OLD VS NEW ── */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0; border: 1px solid var(--border);
+    border-radius: 2px; overflow: hidden; margin-top: 8px;
+  }
+
+  .compare-col { padding: 36px; position: relative; }
+  .compare-col.old { background: #0f0f16; border-right: 1px solid var(--border); }
+  .compare-col.new { background: #0d1814; }
+
+  .compare-col.new::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at top right, rgba(126,255,245,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .compare-label {
+    font-size: 9px; letter-spacing: 0.25em;
+    text-transform: uppercase; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .compare-label.old-label { color: var(--accent2); }
+  .compare-label.new-label { color: var(--accent); }
+
+  .compare-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+
+  .compare-list li {
+    font-size: 11px; color: var(--muted);
+    line-height: 1.6; padding-left: 20px;
+    position: relative; letter-spacing: 0.02em;
+  }
+
+  .compare-list li::before { position: absolute; left: 0; top: 0; }
+  .compare-col.old .compare-list li::before { content: '✗'; color: var(--accent2); }
+  .compare-col.new .compare-list li::before { content: '✓'; color: var(--accent); }
+  .compare-list li strong { color: var(--text); }
+
+  /* ── PROVIDERS GRID ── */
+  .providers-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 8px; }
+
+  .provider-tile {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 20px 16px; text-align: center;
+    border-radius: 2px;
+    transition: border-color 0.3s, transform 0.2s;
+    cursor: default;
+  }
+
+  .provider-tile:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .provider-tile.local { border-color: rgba(126,255,245,0.3); }
+
+  .provider-emoji { font-size: 22px; margin-bottom: 8px; }
+
+  .provider-name { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .provider-note { font-size: 9px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .provider-note.free-badge { color: var(--accent); }
+
+  /* ── FREE BANNER ── */
+  .free-banner {
+    border: 1px solid rgba(126,255,245,0.3);
+    background: rgba(126,255,245,0.04);
+    padding: 32px 40px;
+    display: flex; align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap; gap: 20px;
+    border-radius: 2px; position: relative; overflow: hidden;
+    animation: fadeUp 0.7s 0.3s ease both;
+  }
+
+  .free-banner::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at left, rgba(126,255,245,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .free-left { display: flex; align-items: center; gap: 20px; }
+  .free-icon { font-size: 40px; }
+
+  .free-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: -0.02em; }
+  .free-sub { font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: 0.04em; }
+
+  .free-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .free-tag {
+    font-size: 10px; padding: 6px 14px;
+    border: 1px solid rgba(126,255,245,0.25);
+    color: var(--accent); letter-spacing: 0.08em;
+    text-transform: uppercase; border-radius: 2px;
+  }
+
+  /* ── SETUP SECTION ── */
+  .setup-section {
+    display: flex; flex-direction: column; gap: 24px;
+  }
+
+  .setup-step {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .step-num {
+    width: 48px; height: 48px;
+    border: 1px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 18px; font-weight: 800;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .step-content {}
+
+  .step-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 700;
+    color: var(--text); margin-bottom: 8px;
+  }
+
+  .step-desc {
+    font-size: 11px; color: var(--muted);
+    line-height: 1.8; margin-bottom: 12px;
+    letter-spacing: 0.02em;
+  }
+
+  .step-desc strong { color: var(--text); }
+  .step-desc a { color: var(--accent); text-decoration: none; }
+  .step-desc a:hover { text-decoration: underline; }
+
+  pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent);
+    padding: 16px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    overflow-x: auto;
+    line-height: 1.7;
+    border-radius: 0 2px 2px 0;
+  }
+
+  pre .comment { color: var(--muted); }
+  pre .key { color: var(--accent3); }
+  pre .val { color: #a8ff78; }
+
+  .inline-code {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    background: #1a1a28;
+    color: var(--accent);
+    padding: 2px 7px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+
+  .env-table {
+    width: 100%; border-collapse: collapse; margin-top: 12px;
+  }
+
+  .env-table th {
+    font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--muted); text-align: left; padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .env-table td {
+    font-size: 11px; padding: 10px 12px;
+    border-bottom: 1px solid rgba(30,30,46,0.6);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  .env-table td:first-child { color: var(--accent3); font-family: 'Space Mono', monospace; }
+  .env-table td:last-child { color: var(--muted); }
+
+  .models-table {
+    width: 100%; border-collapse: collapse; margin-top: 12px;
+  }
+
+  .models-table th {
+    font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--muted); text-align: left; padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .models-table td {
+    font-size: 11px; padding: 10px 12px;
+    border-bottom: 1px solid rgba(30,30,46,0.6);
+    color: var(--muted);
+  }
+
+  .models-table td:first-child { color: var(--accent); font-family: 'Space Mono', monospace; }
+
+  .tip-box {
+    background: rgba(126,255,245,0.04);
+    border: 1px solid rgba(126,255,245,0.15);
+    border-left: 2px solid var(--accent);
+    padding: 14px 18px;
+    font-size: 11px; color: var(--muted);
+    line-height: 1.7; border-radius: 0 2px 2px 0;
+    margin-top: 12px;
+  }
+
+  .tip-box strong { color: var(--accent); }
+
+  .warn-box {
+    background: rgba(245,197,66,0.04);
+    border: 1px solid rgba(245,197,66,0.2);
+    border-left: 2px solid var(--accent3);
+    padding: 14px 18px;
+    font-size: 11px; color: var(--muted);
+    line-height: 1.7; border-radius: 0 2px 2px 0;
+    margin-top: 12px;
+  }
+
+  .warn-box strong { color: var(--accent3); }
+
+  /* ── DETECT KEY VISUAL ── */
+  .terminal {
+    background: #08080f;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+
+  .terminal-bar {
+    background: #111118;
+    padding: 8px 14px;
+    display: flex; align-items: center; gap: 7px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .terminal-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+
+  .terminal-body {
+    padding: 18px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; line-height: 2;
+  }
+
+  .t-cmd { color: var(--accent3); }
+  .t-out { color: var(--muted); }
+  .t-highlight { color: var(--accent); }
+  .t-prompt { color: var(--accent2); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .waveform { display: flex; align-items: center; gap: 3px; height: 30px; margin-bottom: 18px; }
+
+  .wave-bar {
+    width: 3px; background: var(--accent); border-radius: 2px;
+    animation: wave 1.4s ease-in-out infinite; opacity: 0.7;
+  }
+
+  .wave-bar:nth-child(1) { height: 8px; animation-delay: 0s; }
+  .wave-bar:nth-child(2) { height: 16px; animation-delay: 0.1s; }
+  .wave-bar:nth-child(3) { height: 24px; animation-delay: 0.2s; }
+  .wave-bar:nth-child(4) { height: 30px; animation-delay: 0.3s; }
+  .wave-bar:nth-child(5) { height: 22px; animation-delay: 0.4s; }
+  .wave-bar:nth-child(6) { height: 18px; animation-delay: 0.5s; }
+  .wave-bar:nth-child(7) { height: 14px; animation-delay: 0.6s; }
+  .wave-bar:nth-child(8) { height: 10px; animation-delay: 0.7s; }
+
+  @keyframes wave {
+    0%, 100% { transform: scaleY(0.5); opacity: 0.4; }
+    50% { transform: scaleY(1); opacity: 0.9; }
+  }
+
+  .divider-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 0;
+  }
+
+  @media (max-width: 640px) {
+    .card { padding: 28px; }
+    .flow { grid-template-columns: 1fr; }
+    .flow-arrow { transform: rotate(90deg); }
+    .compare { grid-template-columns: 1fr; }
+    .compare-col.old { border-right: none; border-bottom: 1px solid var(--border); }
+    .providers-grid { grid-template-columns: repeat(2,1fr); }
+    .setup-step { grid-template-columns: 1fr; }
+    .step-num { width: 36px; height: 36px; font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-badge">Open Source · Free · Local</div>
+    <h1>Voice<span>Typer</span></h1>
+    <p class="header-sub">Dictate anywhere. Type nothing. Work 10× faster.</p>
+  </div>
+
+  <!-- CARD 1: HOW IT WORKS -->
+  <div class="card" style="animation-delay:0.1s">
+    <div class="card-label">01 — How it works</div>
+
+    <div class="waveform">
+      <div class="wave-bar"></div><div class="wave-bar"></div>
+      <div class="wave-bar"></div><div class="wave-bar"></div>
+      <div class="wave-bar"></div><div class="wave-bar"></div>
+      <div class="wave-bar"></div><div class="wave-bar"></div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-icon active">🎙️</div>
+        <div class="flow-step-title">Hold key</div>
+        <div class="flow-step-desc">Press your PTT key and start speaking naturally</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-icon">🧠</div>
+        <div class="flow-step-title">Whisper</div>
+        <div class="flow-step-desc">Local AI transcribes your voice — no internet needed</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-icon">⌨️</div>
+        <div class="flow-step-title">Auto-paste</div>
+        <div class="flow-step-desc">Text lands exactly where your cursor is</div>
+      </div>
+    </div>
+
+    <div class="divider-line" style="margin: 36px 0;"></div>
+
+    <div class="key-demo">
+      <div class="key-mode">
+        <div class="key-mode-tag plain">// Mode A — Plain dictation</div>
+        <span class="keycap">F15 hold</span>
+        <div class="key-mode-desc">
+          Speak → Release → Done.<br>
+          <strong>Your words appear verbatim</strong>, at cursor position, in whatever app is open. VS Code, Notion, Slack, email — anywhere.
+        </div>
+        <div class="result-pill cyan">→ Exact transcription</div>
+      </div>
+
+      <div class="key-mode optimize">
+        <div class="key-mode-tag opt">// Mode B — Prompt optimizer</div>
+        <span class="keycap gold">F16 hold</span>
+        <div class="key-mode-desc">
+          Speak your rough idea → Release → <strong>AI rewrites it as a clean, structured prompt</strong> that models understand far better. Works with Claude, GPT, Gemini, or local Ollama.
+        </div>
+        <div class="result-pill gold">→ Optimized AI prompt</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CARD 2: OLD VS NEW -->
+  <div class="card" style="animation-delay:0.2s">
+    <div class="card-label">02 — The shift in how you work</div>
+
+    <div class="compare">
+      <div class="compare-col old">
+        <div class="compare-label old-label">✗ &nbsp;The old way</div>
+        <ul class="compare-list">
+          <li>Open AI chat tab, <strong>switch windows</strong>, lose context</li>
+          <li>Spend 5 min <strong>typing out</strong> what you want</li>
+          <li>Realize the prompt was vague, <strong>rewrite it</strong> from scratch</li>
+          <li>Pay €20/month for a <strong>cloud subscription</strong></li>
+          <li><strong>Your data leaves</strong> your machine every time</li>
+          <li>Breaks flow — every prompt costs <strong>mental overhead</strong></li>
+        </ul>
+      </div>
+
+      <div class="compare-col new">
+        <div class="compare-label new-label">✓ &nbsp;With VoiceTyper</div>
+        <ul class="compare-list">
+          <li><strong>Never switch windows</strong> — works in any app</li>
+          <li>Think it → <strong>say it in 10 seconds</strong></li>
+          <li>Prompt optimizer <strong>upgrades your idea automatically</strong></li>
+          <li><strong>100% free</strong>, open source, no subscription</li>
+          <li><strong>Fully local</strong> — Whisper runs on your CPU, nothing sent out</li>
+          <li>Stay in flow — voice is <strong>3× faster</strong> than typing</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- CARD 3: PROVIDERS -->
+  <div class="card" style="animation-delay:0.3s">
+    <div class="card-label">03 — Prompt optimizer backends</div>
+    <div class="providers-grid">
+      <div class="provider-tile local">
+        <div class="provider-emoji">🦙</div>
+        <div class="provider-name">Ollama</div>
+        <div class="provider-note free-badge">100% local · free</div>
+      </div>
+      <div class="provider-tile">
+        <div class="provider-emoji">🤖</div>
+        <div class="provider-name">Claude</div>
+        <div class="provider-note">Anthropic API</div>
+      </div>
+      <div class="provider-tile">
+        <div class="provider-emoji">⚡</div>
+        <div class="provider-name">OpenAI</div>
+        <div class="provider-note">GPT-4o-mini</div>
+      </div>
+      <div class="provider-tile">
+        <div class="provider-emoji">💎</div>
+        <div class="provider-name">Gemini</div>
+        <div class="provider-note">Google API</div>
+      </div>
+    </div>
+    <p style="font-size:11px; color:var(--muted); margin-top:20px; letter-spacing:0.03em;">
+      Using <strong style="color:var(--accent)">Ollama with phi4-mini or llama3.2</strong>? Zero cost, zero data transmission. Your prompts never leave your machine.
+    </p>
+  </div>
+
+  <!-- CARD 4: SETUP -->
+  <div class="card" style="animation-delay:0.35s">
+    <div class="card-label">04 — Installation &amp; setup</div>
+
+    <div class="setup-section">
+
+      <!-- Step 1 -->
+      <div class="setup-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Clone &amp; install dependencies</div>
+          <div class="step-desc">Requires <strong>Python 3.10+</strong> and <strong>Windows</strong>. Create a virtual environment and install everything from <span class="inline-code">requirements.txt</span>.</div>
+          <pre>python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt</pre>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="setup-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Create your <span class="inline-code">.env</span> file</div>
+          <div class="step-desc">Copy the example and fill in your values. The <span class="inline-code">.env</span> file is never committed to git.</div>
+          <pre>copy .env.example .env</pre>
+          <pre><span class="comment"># PTT keys — run detect_key.py to find the name of any key</span>
+<span class="key">PTT_KEY</span>=<span class="val">f15</span>
+<span class="key">PTT_KEY_OPTIMIZE</span>=<span class="val">f16</span>
+
+<span class="comment"># Transcription language (leave empty for auto-detect)</span>
+<span class="key">WHISPER_LANG</span>=<span class="val">es</span>
+
+<span class="comment"># Prompt optimizer provider: anthropic | openai | gemini | ollama</span>
+<span class="key">OPTIMIZE_PROVIDER</span>=<span class="val">anthropic</span>
+
+<span class="comment"># Only fill in the key for your chosen provider</span>
+<span class="key">ANTHROPIC_API_KEY</span>=<span class="val">sk-ant-...</span>
+<span class="key">OPENAI_API_KEY</span>=
+<span class="key">GEMINI_API_KEY</span>=
+<span class="key">OLLAMA_API_KEY</span>=<span class="val">ollama</span></pre>
+        </div>
+      </div>
+
+      <!-- Step 3: detect_key -->
+      <div class="setup-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Find your PTT key names</div>
+          <div class="step-desc">Not sure what name pynput gives to a key on your keyboard, mouse, or Stream Deck? Run <span class="inline-code">detect_key.py</span>, press the key, and copy the value it shows.</div>
+          <pre>python .\detect_key.py</pre>
+          <div class="terminal">
+            <div class="terminal-bar">
+              <div class="terminal-dot" style="background:#ff5f57"></div>
+              <div class="terminal-dot" style="background:#ffbd2e"></div>
+              <div class="terminal-dot" style="background:#28c840"></div>
+            </div>
+            <div class="terminal-body">
+              <div class="t-prompt">Press any key to see its name (Esc to quit)...</div>
+              <div style="height:6px"></div>
+              <div class="t-out">  Key pressed: &nbsp;<span class="t-highlight">&lt;Key.f15: 0&gt;</span></div>
+              <div class="t-out">  Use in PTT_KEY: &nbsp;<span class="t-highlight">f15</span></div>
+            </div>
+          </div>
+          <div class="tip-box">
+            <strong>Tip:</strong> High function keys (<span class="inline-code">f13</span>–<span class="inline-code">f24</span>) are ideal — almost no app uses them. Many gaming mice, macro keyboards, and Stream Deck devices emit them even though they're not printed on standard keyboards.
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Ollama (optional) -->
+      <div class="setup-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Optional: set up Ollama for fully local prompt optimization</div>
+          <div class="step-desc">Skip this step if you're using a cloud provider. If you want <strong>zero cost, zero data transmission</strong>, install Ollama and pull a model.</div>
+          <pre><span class="comment"># Install Ollama</span>
+irm https://ollama.com/install.ps1 | iex
+
+<span class="comment"># Pull a model (choose one)</span>
+ollama pull phi4-mini      <span class="comment"># recommended — best quality/speed</span>
+ollama pull llama3.2:3b    <span class="comment"># fastest, lowest RAM (~3 GB)</span>
+ollama pull qwen2.5:7b     <span class="comment"># best quality on capable hardware</span></pre>
+
+          <table class="models-table">
+            <tr>
+              <th>Model</th><th>Size</th><th>RAM</th><th>Best for</th>
+            </tr>
+            <tr><td>phi4-mini</td><td>3.8B</td><td>~4 GB</td><td>Best quality/speed balance</td></tr>
+            <tr><td>llama3.2:3b</td><td>3B</td><td>~3 GB</td><td>Fastest, lowest memory</td></tr>
+            <tr><td>qwen2.5:7b</td><td>7B</td><td>~6 GB</td><td>Best quality on capable hardware</td></tr>
+          </table>
+
+          <div class="warn-box">
+            <strong>Language note:</strong> Local models only reliably support English and Spanish. If <span class="inline-code">WHISPER_LANG</span> is set to any other language, the optimizer will fall back to English output.
+          </div>
+
+          <pre style="margin-top:14px"><span class="comment"># Set in .env to use Ollama</span>
+<span class="key">OPTIMIZE_PROVIDER</span>=<span class="val">ollama</span>
+<span class="key">OLLAMA_API_KEY</span>=<span class="val">ollama</span>   <span class="comment"># any non-empty value</span></pre>
+        </div>
+      </div>
+
+      <!-- Step 5: run -->
+      <div class="setup-step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Run</div>
+          <div class="step-desc">Start the app. On first run, Whisper may download the selected model. The console confirms which provider is active.</div>
+          <pre>python .\voice_typer.py</pre>
+          <div class="terminal">
+            <div class="terminal-bar">
+              <div class="terminal-dot" style="background:#ff5f57"></div>
+              <div class="terminal-dot" style="background:#ffbd2e"></div>
+              <div class="terminal-dot" style="background:#28c840"></div>
+            </div>
+            <div class="terminal-body">
+              <div class="t-out">Loading Whisper model on CPU...</div>
+              <div class="t-highlight">Voice Typer ready. PTT=dictate | PTT_OPTIMIZE=dictate+optimize [anthropic] (OK).</div>
+              <div class="t-out">Press Ctrl+C or use tray Quit to exit.</div>
+            </div>
+          </div>
+          <div class="tip-box" style="margin-top:14px">
+            <strong>Windows Startup:</strong> To launch automatically on login, run <span class="inline-code">python .\install_startup.py</span>. Remove with <span class="inline-code">python .\uninstall_startup.py</span>.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FREE BANNER -->
+  <div class="free-banner">
+    <div class="free-left">
+      <div class="free-icon">🔓</div>
+      <div>
+        <div class="free-title">Free. Local. Yours.</div>
+        <div class="free-sub">No subscription. No account. No cloud. Just install and speak.</div>
+      </div>
+    </div>
+    <div class="free-tags">
+      <div class="free-tag">Open Source</div>
+      <div class="free-tag">Offline</div>
+      <div class="free-tag">No data sent</div>
+      <div class="free-tag">Windows</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
