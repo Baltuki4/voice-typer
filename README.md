@@ -1,15 +1,4 @@
-<div align="center">
-
-# 🎙️ Voice Typer
-
-### Dictate anywhere. Type nothing. Work 10× faster.
-
-[![Open Source](https://img.shields.io/badge/Open%20Source-%E2%9C%93-brightgreen?style=flat-square)]()
-[![Free](https://img.shields.io/badge/Free-%E2%9C%93-blue?style=flat-square)]()
-[![Local](https://img.shields.io/badge/Local-%E2%9C%93-orange?style=flat-square)]()
-[![Windows](https://img.shields.io/badge/Windows-supported-0078D4?style=flat-square&logo=windows&logoColor=white)]()
-
-</div>
+![banner](docs/assets/banner.png)
 
 ---
 
