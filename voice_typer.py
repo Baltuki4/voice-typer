@@ -8,10 +8,12 @@ Right-click the tray icon to quit.
 
 import ctypes
 import os
+import re
 import signal
 import sys
 import threading
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -27,6 +29,17 @@ from PIL import Image, ImageDraw
 from pynput import keyboard
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
+
+# Normalise left/right modifier variants to their canonical form so that
+# combo matching works regardless of which physical key the user presses.
+_MODIFIER_CANONICAL: dict = {
+    keyboard.Key.ctrl_l:  keyboard.Key.ctrl,
+    keyboard.Key.ctrl_r:  keyboard.Key.ctrl,
+    keyboard.Key.shift_l: keyboard.Key.shift,
+    keyboard.Key.shift_r: keyboard.Key.shift,
+    keyboard.Key.alt_l:   keyboard.Key.alt,
+    keyboard.Key.alt_r:   keyboard.Key.alt,
+}
 
 
 def _maybe_reexec_into_project_venv() -> None:
@@ -59,17 +72,62 @@ _maybe_reexec_into_project_venv()
 
 # ---- HELPERS ----------------------------------------------------------------
 
-def _parse_key(name: str) -> keyboard.Key | keyboard.KeyCode:
-    """Convert a key name string (e.g. 'f15', 'ctrl') to a pynput key object."""
+def _parse_single_key(name: str) -> keyboard.Key | keyboard.KeyCode:
+    """Convert a single key name string (e.g. 'f15', 'ctrl') to a pynput key object."""
     key = getattr(keyboard.Key, name.lower(), None)
     if key is not None:
         return key
     return keyboard.KeyCode.from_char(name)
 
 
+_MODIFIER_NAMES = {"ctrl", "shift", "alt", "alt_gr", "cmd", "super"}
+
+
+def _parse_key_combo(combo_str: str) -> tuple[frozenset, keyboard.Key | keyboard.KeyCode]:
+    """Parse a key combo string into (modifiers_frozenset, trigger_key).
+
+    Examples:
+        'f15'              -> (frozenset(), Key.f15)
+        'ctrl+shift+f9'   -> ({Key.ctrl, Key.shift}, Key.f9)
+        'ctrl+alt+r'      -> ({Key.ctrl, Key.alt}, KeyCode('r'))
+    """
+    parts = [p.strip().lower() for p in combo_str.split("+")]
+    modifiers: set = set()
+    trigger = None
+    for part in parts:
+        k = _parse_single_key(part)
+        if part in _MODIFIER_NAMES:
+            modifiers.add(k)
+        else:
+            trigger = k
+    if trigger is None:
+        # Fallback: treat the last token as the trigger.
+        trigger = _parse_single_key(parts[-1])
+    return frozenset(modifiers), trigger
+
+
+def _key_label(key: keyboard.Key | keyboard.KeyCode) -> str:
+    """Return a human-readable label for a single key."""
+    if isinstance(key, keyboard.Key):
+        return str(key).replace("Key.", "").upper()
+    if getattr(key, "char", None):
+        return key.char.upper()
+    return str(key)
+
+
+def _combo_label(combo: tuple[frozenset, keyboard.Key | keyboard.KeyCode]) -> str:
+    """Return a human-readable combo label, e.g. 'CTRL+SHIFT+F9'."""
+    modifiers, trigger = combo
+    _mod_order = {"CTRL": 0, "SHIFT": 1, "ALT": 2, "CMD": 3}
+    sorted_mods = sorted((_key_label(m) for m in modifiers), key=lambda x: _mod_order.get(x, 99))
+    return "+".join(sorted_mods + [_key_label(trigger)])
+
+
 # ---- CONFIG -----------------------------------------------------------------
-PTT_KEY          = _parse_key(os.environ.get("PTT_KEY", "f15"))
-PTT_KEY_OPTIMIZE = _parse_key(os.environ.get("PTT_KEY_OPTIMIZE", "f16"))
+PTT_KEY          = _parse_key_combo(os.environ.get("PTT_KEY", "f15"))
+PTT_KEY_OPTIMIZE = _parse_key_combo(os.environ.get("PTT_KEY_OPTIMIZE", "f16"))
+PTT_LABEL          = _combo_label(PTT_KEY)
+PTT_OPTIMIZE_LABEL = _combo_label(PTT_KEY_OPTIMIZE)
 WHISPER_MODEL  = "small"                                        # tiny | base | small | medium | large-v3
 WHISPER_LANG   = os.environ.get("WHISPER_LANG", "es") or None  # None = auto-detect, or "en", "es", "fr", ...
 WHISPER_DEVICE = "cpu"                                          # forced to keep startup and manual runs identical
@@ -150,7 +208,8 @@ def _build_system_prompt() -> str:
 
 # ---- STATE ------------------------------------------------------------------
 _recording = False
-_active_ptt_key = None  # which PTT key is currently held down
+_active_ptt_key = None  # which PTT combo tuple is currently held down
+_pressed_keys: set = set()  # canonical keys currently held (for combo detection)
 _audio_chunks: list[np.ndarray] = []
 _lock = threading.Lock()
 _tray: pystray.Icon | None = None
@@ -364,20 +423,33 @@ def _paste(text: str, kb_ctrl: keyboard.Controller) -> None:
 
 
 def _run_keyboard_listener(model: WhisperModel, kb_ctrl: keyboard.Controller) -> None:
-    global _keyboard_listener, _recording, _active_ptt_key
+    global _keyboard_listener, _recording, _active_ptt_key, _pressed_keys
+
+    _idle_label = f"Voice Typer - {PTT_LABEL} / {PTT_OPTIMIZE_LABEL} to record"
+
+    def _canonical(key):
+        return _MODIFIER_CANONICAL.get(key, key)
 
     def on_press(key) -> None:
         global _recording, _active_ptt_key
         if _stopping.is_set():
             return
-        if key in (PTT_KEY, PTT_KEY_OPTIMIZE) and not _recording:
-            _active_ptt_key = key
-            _recording = True
-            with _lock:
-                _audio_chunks.clear()
-            label = "Recording [OPTIMIZE]..." if key == PTT_KEY_OPTIMIZE else "Recording..."
-            _set_tray(f"Voice Typer - {label}", recording=True)
-            threading.Thread(target=_record_loop, daemon=True).start()
+        canonical = _canonical(key)
+        _pressed_keys.add(canonical)
+
+        if _recording:
+            return
+
+        for combo, label_suffix in ((PTT_KEY, ""), (PTT_KEY_OPTIMIZE, " [OPTIMIZE]")):
+            mods, trigger = combo
+            if canonical == trigger and mods.issubset(_pressed_keys):
+                _active_ptt_key = combo
+                _recording = True
+                with _lock:
+                    _audio_chunks.clear()
+                _set_tray(f"Voice Typer - Recording{label_suffix}...", recording=True)
+                threading.Thread(target=_record_loop, daemon=True).start()
+                break
 
     def _transcribe_and_paste(audio: np.ndarray) -> None:
         if _stopping.is_set():
@@ -386,7 +458,7 @@ def _run_keyboard_listener(model: WhisperModel, kb_ctrl: keyboard.Controller) ->
         if text and not _stopping.is_set():
             _paste(text, kb_ctrl)
         if not _stopping.is_set():
-            _set_tray("Voice Typer - F15 / F16 to record")
+            _set_tray(_idle_label)
 
     def _transcribe_optimize_and_paste(audio: np.ndarray) -> None:
         if _stopping.is_set():
@@ -394,42 +466,46 @@ def _run_keyboard_listener(model: WhisperModel, kb_ctrl: keyboard.Controller) ->
         _set_tray("Voice Typer - Transcribing [OPTIMIZE]...")
         text = _transcribe(model, audio)
         if not text or _stopping.is_set():
-            _set_tray("Voice Typer - F15 / F16 to record")
+            _set_tray(_idle_label)
             return
         _set_tray("Voice Typer - Calling Claude API...")
         optimized = _optimize_prompt(text)
         if not _stopping.is_set():
             _paste(optimized, kb_ctrl)
         if not _stopping.is_set():
-            _set_tray("Voice Typer - F15 / F16 to record")
+            _set_tray(_idle_label)
 
     def on_release(key) -> None:
         global _recording, _active_ptt_key
         if _stopping.is_set():
             return
-        if key != _active_ptt_key or not _recording:
-            return
 
-        optimize = _active_ptt_key == PTT_KEY_OPTIMIZE
-        _recording = False
-        _active_ptt_key = None
-        _set_tray("Voice Typer - Transcribing...")
+        canonical = _canonical(key)
 
-        with _lock:
-            audio = np.concatenate(_audio_chunks) if _audio_chunks else np.array([], dtype=np.float32)
+        if _recording and _active_ptt_key is not None:
+            _, trigger = _active_ptt_key
+            if canonical == trigger:
+                optimize = _active_ptt_key == PTT_KEY_OPTIMIZE
+                _recording = False
+                _active_ptt_key = None
+                _set_tray("Voice Typer - Transcribing...")
 
-        if len(audio) / SAMPLE_RATE < MIN_DURATION:
-            _set_tray("Voice Typer - F15 / F16 to record")
-            return
+                with _lock:
+                    audio = np.concatenate(_audio_chunks) if _audio_chunks else np.array([], dtype=np.float32)
 
-        try:
-            if optimize:
-                _executor.submit(_transcribe_optimize_and_paste, audio)
-            else:
-                _executor.submit(_transcribe_and_paste, audio)
-        except RuntimeError:
-            # Executor may already be shutting down.
-            return
+                if len(audio) / SAMPLE_RATE < MIN_DURATION:
+                    _set_tray(_idle_label)
+                else:
+                    try:
+                        if optimize:
+                            _executor.submit(_transcribe_optimize_and_paste, audio)
+                        else:
+                            _executor.submit(_transcribe_and_paste, audio)
+                    except RuntimeError:
+                        # Executor may already be shutting down.
+                        return
+
+        _pressed_keys.discard(canonical)
 
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
         _keyboard_listener = listener
@@ -464,11 +540,11 @@ def main() -> None:
                 api_key_env = cfg.get("api_key_env", "")
                 optimize_status = "OK" if os.environ.get(api_key_env) else f"MISSING {api_key_env}"
                 print(
-                    f"Voice Typer ready. PTT=dictate | PTT_OPTIMIZE=dictate+optimize [{OPTIMIZE_PROVIDER}] ({optimize_status}). "
+                    f"Voice Typer ready. {PTT_LABEL}=dictate | {PTT_OPTIMIZE_LABEL}=dictate+optimize [{OPTIMIZE_PROVIDER}] ({optimize_status}). "
                     "Press Ctrl+C or use tray Quit to exit.",
                     flush=True,
                 )
-                _set_tray("Voice Typer - F15 / F16 to record")
+                _set_tray(f"Voice Typer - {PTT_LABEL} / {PTT_OPTIMIZE_LABEL} to record")
 
         threading.Thread(target=_load, daemon=True).start()
 
