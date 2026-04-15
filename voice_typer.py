@@ -45,23 +45,32 @@ _MODIFIER_CANONICAL: dict = {
 def _maybe_reexec_into_project_venv() -> None:
     """
     Keep manual launches aligned with startup by preferring the project's venv.
+    Works on Windows, macOS, and Linux.
     """
-    if os.name != "nt":
-        return
+    project_dir = Path(__file__).resolve().parent
 
-    scripts_dir = Path(__file__).resolve().parent / ".venv" / "Scripts"
-    if not scripts_dir.exists():
+    if os.name == "nt":
+        bin_dir = project_dir / ".venv" / "Scripts"
+        preferred_name = (
+            "pythonw.exe"
+            if Path(sys.executable).name.lower() == "pythonw.exe"
+            else "python.exe"
+        )
+    else:
+        bin_dir = project_dir / ".venv" / "bin"
+        preferred_name = "python"
+
+    if not bin_dir.exists():
         return
 
     current_executable = Path(sys.executable).resolve()
     try:
-        if current_executable.parent.samefile(scripts_dir):
+        if current_executable.parent.samefile(bin_dir):
             return
     except FileNotFoundError:
         pass
 
-    preferred_name = "pythonw.exe" if current_executable.name.lower() == "pythonw.exe" else "python.exe"
-    preferred_executable = scripts_dir / preferred_name
+    preferred_executable = bin_dir / preferred_name
     if not preferred_executable.exists():
         return
 
@@ -216,6 +225,7 @@ _tray: pystray.Icon | None = None
 _stopping = threading.Event()
 _executor = ThreadPoolExecutor(max_workers=1)
 _instance_mutex: int | None = None
+_lock_file_handle = None  # Unix file-lock handle (IO | None)
 _keyboard_listener: keyboard.Listener | None = None
 _console_ctrl_handler = None
 
@@ -276,34 +286,60 @@ def _acquire_single_instance_lock() -> bool:
     """
     Prevent multiple instances.
     If two instances run at once they can both paste, causing duplicated text.
+
+    Windows: named mutex via Win32 API.
+    macOS/Linux: exclusive file lock via fcntl.
     """
-    global _instance_mutex
+    global _instance_mutex, _lock_file_handle
 
-    if os.name != "nt":
+    if os.name == "nt":
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.CreateMutexW(None, False, "Local\\VoiceTyperSingleton")
+        if not handle:
+            return True
+        error_already_exists = 183
+        if kernel32.GetLastError() == error_already_exists:
+            kernel32.CloseHandle(handle)
+            return False
+        _instance_mutex = handle
         return True
-
-    kernel32 = ctypes.windll.kernel32
-    handle = kernel32.CreateMutexW(None, False, "Local\\VoiceTyperSingleton")
-    if not handle:
-        return True
-
-    error_already_exists = 183
-    if kernel32.GetLastError() == error_already_exists:
-        kernel32.CloseHandle(handle)
-        return False
-
-    _instance_mutex = handle
-    return True
+    else:
+        import fcntl
+        import tempfile
+        lock_path = Path(tempfile.gettempdir()) / "voice_typer.lock"
+        try:
+            fh = open(lock_path, "w")
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fh.write(str(os.getpid()))
+            fh.flush()
+            _lock_file_handle = fh
+            return True
+        except OSError:
+            try:
+                fh.close()
+            except Exception:
+                pass
+            return False
 
 
 def _release_single_instance_lock() -> None:
-    global _instance_mutex
+    global _instance_mutex, _lock_file_handle
 
-    if os.name != "nt" or _instance_mutex is None:
-        return
-
-    ctypes.windll.kernel32.CloseHandle(_instance_mutex)
-    _instance_mutex = None
+    if os.name == "nt":
+        if _instance_mutex is None:
+            return
+        ctypes.windll.kernel32.CloseHandle(_instance_mutex)
+        _instance_mutex = None
+    else:
+        if _lock_file_handle is None:
+            return
+        import fcntl
+        try:
+            fcntl.flock(_lock_file_handle, fcntl.LOCK_UN)
+            _lock_file_handle.close()
+        except Exception:
+            pass
+        _lock_file_handle = None
 
 
 def _build_whisper_model() -> WhisperModel:
@@ -404,7 +440,10 @@ def _optimize_via_openai(text: str, api_key: str, model: str, base_url: str | No
 
 
 def _paste(text: str, kb_ctrl: keyboard.Controller) -> None:
-    """Paste text at the current cursor position via clipboard."""
+    """Paste text at the current cursor position via clipboard.
+
+    Uses Cmd+V on macOS and Ctrl+V on Windows/Linux.
+    """
     try:
         previous = pyperclip.paste()
     except Exception:
@@ -412,7 +451,8 @@ def _paste(text: str, kb_ctrl: keyboard.Controller) -> None:
 
     pyperclip.copy(text)
     time.sleep(0.01)
-    with kb_ctrl.pressed(keyboard.Key.ctrl):
+    paste_modifier = keyboard.Key.cmd if sys.platform == "darwin" else keyboard.Key.ctrl
+    with kb_ctrl.pressed(paste_modifier):
         kb_ctrl.tap("v")
     time.sleep(0.05)
 
