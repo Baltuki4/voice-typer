@@ -104,7 +104,7 @@ The app runs in the background as a system tray icon:
 
 Close from the tray icon (`Quit`) or with `Ctrl+C` in the console.
 
-> **Note:** When launched via Windows Startup, the app uses `pythonw.exe` (no console window), so `Ctrl+C` does not apply — use `Quit` from the tray icon instead.
+> **Note:** When launched via Windows Startup, the app uses `pythonw.exe` (no console window), so `Ctrl+C` does not apply — use `Quit` from the tray icon instead. Startup diagnostics are written to `voice_typer.log` by default.
 
 ---
 
@@ -145,6 +145,17 @@ PTT_KEY_OPTIMIZE=f16
 # Examples: en, es, fr, de, it, pt, zh, ja
 WHISPER_LANG=es
 
+# Performance / accuracy
+WHISPER_MODEL=small
+WHISPER_DEVICE=cpu
+WHISPER_COMPUTE_TYPE=int8
+WHISPER_BEAM_SIZE=1
+WHISPER_CPU_THREADS=8
+AUDIO_KEEP_OPEN=false
+AUDIO_LATENCY=low
+AUDIO_TAIL_SECONDS=0.12
+AUDIO_PAD_SECONDS=0.10
+
 # Provider: anthropic | openai | gemini | ollama
 OPTIMIZE_PROVIDER=anthropic
 
@@ -157,18 +168,28 @@ GEMINI_API_KEY=
 OLLAMA_API_KEY=ollama
 ```
 
-If `OPTIMIZE_PROVIDER` is not set, it defaults to `anthropic`. If the selected provider's API key is missing, `PTT_KEY_OPTIMIZE` falls back to plain dictation and prints a warning to the console.
+If `OPTIMIZE_PROVIDER` is not set, it defaults to `anthropic`. If the selected provider's API key is missing, `PTT_KEY_OPTIMIZE` falls back to plain dictation and writes a warning to the console/log.
 
 ### Whisper
 
-`WHISPER_LANG` is configured via `.env` (see above). The following constants can be changed directly in `voice_typer.py` if needed:
+`WHISPER_LANG` and the performance settings are configured via `.env` (see above).
 
 | Variable | Default | Description |
 |---|---|---|
 | `WHISPER_MODEL` | `small` | Model size: `tiny`, `base`, `small`, `medium`, `large-v3` |
-| `MIN_DURATION` | `0.4` | Minimum audio duration in seconds before transcribing |
+| `WHISPER_BEAM_SIZE` | `1` | `1` is fastest; `3`-`5` can improve accuracy but increases transcription time |
+| `WHISPER_CPU_THREADS` | `8` | CPU threads for faster-whisper on CPU |
+| `AUDIO_KEEP_OPEN` | `false` | Set `true` to keep the mic stream open while idle for lower press-to-record latency |
+| `AUDIO_LATENCY` | `low` | Sounddevice latency hint (`low`, `high`, or seconds) |
+| `AUDIO_BLOCK_SIZE` | `512` | Mic callback block size; lower can reduce latency but costs more CPU |
+| `AUDIO_TAIL_SECONDS` | `0.12` | Extra capture after key release to avoid clipped endings |
+| `AUDIO_PAD_SECONDS` | `0.10` | Silence padding before/after Whisper transcription for edge-word accuracy |
+| `MIN_DURATION` | `0.35` | Minimum audio duration in seconds before transcribing |
+| `VOICE_TYPER_PRIORITY` | `above_normal` | Windows process priority for short transcription bursts |
 
-The Whisper backend is fixed to CPU so that manual runs and Windows Startup behave identically.
+The app defaults to CPU so manual runs and Windows Startup behave identically. If your `faster-whisper` install supports GPU acceleration, set `WHISPER_DEVICE=cuda` and `WHISPER_COMPUTE_TYPE=float16` in `.env`.
+
+By default, Voice Typer opens the microphone when you press the PTT key and closes it after the configured release tail. Set `AUDIO_KEEP_OPEN=true` for lower latency if you are okay with the OS showing the mic-active indicator while the app is idle.
 
 ### Prompt optimizer — available providers
 
